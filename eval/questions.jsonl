@@ -1,0 +1,26 @@
+{"question": "What are the four kinds of analytics?", "page": 1}
+{"question": "Why do companies rely on analysing data?", "page": 1}
+{"question": "Where can raw data come from?", "page": 2}
+{"question": "What is the difference between structured and unstructured data sources?", "page": 2}
+{"question": "How do I deal with blank or missing entries in a dataset?", "page": 3}
+{"question": "What happens if my data has errors and duplicates?", "page": 3}
+{"question": "Which Python packages help explore a dataset before modelling?", "page": 4}
+{"question": "What should I look at before training a model on new data?", "page": 4}
+{"question": "Which chart types can I use to present data?", "page": 5}
+{"question": "How do dashboards help stakeholders?", "page": 5}
+{"question": "What is standard deviation used for in analysis?", "page": 6}
+{"question": "Which statistical concepts should an analyst know?", "page": 6}
+{"question": "How do I combine rows from two database tables?", "page": 7}
+{"question": "Which query keyword filters grouped results?", "page": 7}
+{"question": "What is DAX?", "page": 8}
+{"question": "How can a business track its KPIs?", "page": 8}
+{"question": "Name some common algorithms for prediction.", "page": 9}
+{"question": "Which method groups similar points into clusters?", "page": 9}
+{"question": "What does retrieval-augmented generation mean?", "page": 10}
+{"question": "How is generative AI changing analytics?", "page": 10}
+{"question": "What is the capital of France?", "page": null}
+{"question": "How do I bake sourdough bread?", "page": null}
+{"question": "Who won the 2018 FIFA World Cup?", "page": null}
+{"question": "How do I change a flat tyre?", "page": null}
+{"question": "What is the boiling point of water at sea level?", "page": null}
+{"question": "Recommend a good holiday destination in Japan.", "page": null}
