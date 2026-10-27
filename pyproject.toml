@@ -1,0 +1,19 @@
+[project]
+name = "citewise"
+version = "0.1.0"
+description = "Answers questions from your PDFs, citing the page each answer came from."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["citewise"]
+
+[tool.pyright]
+venvPath = "../.."
+venv = "venv-genai"
+include = ["citewise", "tests", "eval"]
+pythonVersion = "3.11"
