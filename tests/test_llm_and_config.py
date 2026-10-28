@@ -34,6 +34,17 @@ class TestGeminiLLM:
         assert models.calls[0]["model"] == "gemini-test"
         assert models.calls[0]["config"].temperature == 0  # type: ignore[attr-defined]
 
+    def test_thinking_budget_is_passed_to_the_model_when_set(self):
+        llm, models = gemini_with(SimpleNamespace(text="ok"))
+        llm_without = GeminiLLM(api_key="k", model="m")
+        llm_with = GeminiLLM(api_key="k", model="m", thinking_budget=0)
+
+        assert llm_without._config.thinking_config is None
+        assert llm_with._config.thinking_config is not None
+        assert llm_with._config.thinking_config.thinking_budget == 0
+        assert llm.generate("p") == "ok"
+        assert models.calls
+
     def test_blocked_or_empty_response_raises_llm_error(self):
         llm, _ = gemini_with(SimpleNamespace(text=None))
 
