@@ -26,10 +26,13 @@ def document_id(data: bytes) -> str:
 
 
 def load_pdf(path: Path) -> Document:
-    data = path.read_bytes()
+    return parse_pdf(path.read_bytes(), path.name)
+
+
+def parse_pdf(data: bytes, name: str) -> Document:
     reader = PdfReader(io.BytesIO(data))
     pages = tuple(
         Page(number=number, text=" ".join((page.extract_text() or "").split()))
         for number, page in enumerate(reader.pages, start=1)
     )
-    return Document(doc_id=document_id(data), name=path.name, pages=pages)
+    return Document(doc_id=document_id(data), name=name, pages=pages)
