@@ -1,4 +1,5 @@
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -42,6 +43,23 @@ class Answer:
     found: bool
 
 
+@dataclass(frozen=True)
+class Delta:
+    """A piece of answer text as the model produces it."""
+
+    text: str
+
+
+@dataclass(frozen=True)
+class Done:
+    """The final answer; citations are parsed here because a [n] marker can be split across deltas."""
+
+    answer: Answer
+
+
+REFUSAL = Answer(text=NOT_FOUND, citations=[], found=False)
+
+
 def build_prompt(question: str, hits: list[Hit]) -> str:
     sources = "\n\n".join(
         f"[{n}] ({hit.chunk.doc_name}, p. {hit.chunk.page}) {hit.chunk.text}" for n, hit in enumerate(hits, start=1)
@@ -67,15 +85,34 @@ class Answerer:
 
     def ask(self, question: str) -> Answer:
         question = question.strip()
+        hits = self._relevant_hits(question)
+        if not hits:
+            return REFUSAL
+        return self._finish(self._llm.generate(build_prompt(question, hits)), hits)
+
+    def ask_stream(self, question: str) -> Iterator[Delta | Done]:
+        question = question.strip()
+        hits = self._relevant_hits(question)
+        if not hits:
+            yield Done(REFUSAL)
+            return
+        parts: list[str] = []
+        for text in self._llm.stream(build_prompt(question, hits)):
+            parts.append(text)
+            yield Delta(text)
+        yield Done(self._finish("".join(parts), hits))
+
+    def _relevant_hits(self, question: str) -> list[Hit]:
         hits = self._searcher.search(question, self._top_k)
         # A question-level gate: keyword-only hits have similarity 0.0 but are kept when meaning search agrees.
         if not hits or max(h.similarity for h in hits) < self._min_similarity:
-            return Answer(text=NOT_FOUND, citations=[], found=False)
+            return []
+        return hits
 
-        text = self._llm.generate(build_prompt(question, hits)).strip()
+    def _finish(self, raw_text: str, hits: list[Hit]) -> Answer:
+        text = raw_text.strip()
         if NOT_FOUND in text:
-            return Answer(text=NOT_FOUND, citations=[], found=False)
-
+            return REFUSAL
         citations = [
             Citation(
                 number=n,

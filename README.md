@@ -85,6 +85,13 @@ skipped.
 }
 ```
 
+`POST /api/ask/stream` takes the same body and streams newline-delimited JSON (`application/x-ndjson`) so text
+appears as it is generated: `{"type": "delta", "text": "..."}` lines, then exactly one final line, either
+`{"type": "done", "answer": ..., "found": ..., "citations": [...]}` or `{"type": "error", "code": ..., "message": ...}`.
+Citations arrive only in the `done` line, because a `[n]` marker can be split across deltas. The response status
+is always 200 once streaming starts; failures after that point are reported in the `error` line. The chat page
+uses this endpoint.
+
 `POST /api/documents?name=report.pdf` with the raw PDF as the body (`Content-Type: application/pdf`, up to
 20 MB) indexes it and saves it to `data/`. Returns 201 with `{doc_id, name, pages, chunks_added, already_indexed,
 empty_pages}`, or 200 if the same file (by content hash) is already indexed. `empty_pages` lists pages with no
