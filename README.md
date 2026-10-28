@@ -1,8 +1,10 @@
 # Citewise
 
+[![CI](https://github.com/Surge77/citewise/actions/workflows/ci.yml/badge.svg)](https://github.com/Surge77/citewise/actions/workflows/ci.yml)
+
 Answers questions from your PDFs, with the page to prove it.
 
-Citewise is a retrieval-augmented generation (RAG) app. Drop PDFs into `data/`, ask a question in the browser, and get
+Citewise is a retrieval-augmented generation (RAG) app. Upload PDFs in the browser (or drop them into `data/`), ask a question, and get
 a short answer where every claim cites the document and page it came from. If your documents don't contain the
 answer, it says so instead of guessing.
 
@@ -83,8 +85,17 @@ skipped.
 }
 ```
 
+`POST /api/documents?name=report.pdf` with the raw PDF as the body (`Content-Type: application/pdf`, up to
+20 MB) indexes it and saves it to `data/`. Returns 201 with `{doc_id, name, pages, chunks_added, already_indexed,
+empty_pages}`, or 200 if the same file (by content hash) is already indexed. `empty_pages` lists pages with no
+extractable text, which usually means scanned images. `GET /api/documents` lists indexed documents.
+
+Uploads are checked for the `%PDF-` signature, read with a hard size cap (the body is never fully buffered past
+the limit), and saved under a sanitised file name with no directory components.
+
 Errors use the same envelope with `"success": false` and a code: `VALIDATION_ERROR` (422, with per-field
-messages), `LLM_UNAVAILABLE` (502) or `INTERNAL_ERROR` (500). Error responses never include internal details.
+messages), `INVALID_PDF` (400), `FILE_TOO_LARGE` (413), `LLM_UNAVAILABLE` (502) or `INTERNAL_ERROR` (500).
+Error responses never include internal details.
 
 ## Project layout
 
@@ -96,6 +107,7 @@ messages), `LLM_UNAVAILABLE` (502) or `INTERNAL_ERROR` (500). Error responses ne
 | `citewise/keyword.py` | BM25 keyword index |
 | `citewise/retriever.py` | Reciprocal rank fusion and the hybrid retriever |
 | `citewise/reranker.py` | Cross-encoder reranker |
+| `citewise/library.py` | Upload validation, safe file names, saving and indexing uploads |
 | `citewise/answer.py` | Prompt with numbered sources, citation parsing, refusal |
 | `citewise/llm.py` | Gemini client with clean error mapping |
 | `citewise/api.py` | FastAPI app and response envelope |
