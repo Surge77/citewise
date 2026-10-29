@@ -28,6 +28,15 @@ question ─┬─► meaning search (Chroma, top 20) ─┐
   more accurately than comparing two vectors.
 - **Refusal** is decided before calling the LLM: off-topic questions cost nothing and can't produce a made-up answer.
 
+**Whole-library mode.** Search only finds passages that match a question, so it can't answer "summarize this PDF",
+"list every topic", "how many pages" or "compare these two documents". When the whole library fits in one prompt
+(60,000 characters by default, `full_context_chars`), Citewise skips search and sends every page as a numbered
+source, so any kind of question works and every claim still cites its page. Larger libraries use the search path
+above. In this mode off-topic questions are refused by the model (one LLM call) rather than by the similarity gate.
+
+**Follow-ups.** The chat page sends the last 6 turns with each question, so "explain that more simply" or "give an
+example" refer back to the conversation. In search mode the previous question is added to the search query.
+
 ## Retrieval evaluation
 
 `eval/run_eval.py` scores retrieval only (no LLM calls) on 20 answerable and 6 off-topic questions written for a
