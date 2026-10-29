@@ -1,13 +1,10 @@
 import json
-from types import SimpleNamespace
-
 import pytest
 from fastapi.testclient import TestClient
-from google.genai import errors
 
 from citewise.answer import NOT_FOUND, Answer, Answerer, Citation, Delta, Done
-from citewise.api import create_app
-from citewise.llm import GeminiLLM, LLMError
+from citewise.api import RATE_LIMITED_MESSAGE, create_app
+from citewise.llm import LLMError, LLMRateLimitedError
 
 from tests.conftest import FakeLLM, FakeSearcher, make_hit
 from tests.test_api import StubService
@@ -50,37 +47,6 @@ class TestAnswererStream:
 
         assert isinstance(done, Done)
         assert done.answer.found is False
-
-
-class StubStreamModels:
-    def __init__(self, outcome: object):
-        self.outcome = outcome
-
-    def generate_content_stream(self, **_: object) -> object:
-        if isinstance(self.outcome, Exception):
-            raise self.outcome
-        return iter(self.outcome)  # type: ignore[call-overload]
-
-
-def gemini_streaming(outcome: object) -> GeminiLLM:
-    llm = GeminiLLM(api_key="test-key", model="gemini-test")
-    llm._client = SimpleNamespace(models=StubStreamModels(outcome))  # type: ignore[assignment]
-    return llm
-
-
-class TestGeminiStream:
-    def test_yields_chunk_texts_and_skips_empty_chunks(self):
-        chunks = [SimpleNamespace(text="Hel"), SimpleNamespace(text=None), SimpleNamespace(text="lo [1].")]
-
-        assert list(gemini_streaming(chunks).stream("p")) == ["Hel", "lo [1]."]
-
-    def test_api_error_becomes_llm_error(self):
-        with pytest.raises(LLMError, match="503"):
-            list(gemini_streaming(errors.APIError(503, {"error": {"message": "overloaded"}})).stream("p"))
-
-    def test_stream_with_no_text_at_all_raises_llm_error(self):
-        with pytest.raises(LLMError, match="no text"):
-            list(gemini_streaming([SimpleNamespace(text=None)]).stream("p"))
 
 
 class StreamingStub(StubService):
@@ -131,6 +97,11 @@ class TestStreamEndpoint:
         assert lines[-1]["type"] == "error"
         assert lines[-1]["code"] == "LLM_UNAVAILABLE"
         assert "AIza" not in json.dumps(lines)
+
+    def test_rate_limit_before_any_text_returns_rate_limited_line(self):
+        lines = stream_lines(StreamingStub(LLMRateLimitedError("all models out of quota")))
+
+        assert lines == [{"type": "error", "code": "RATE_LIMITED", "message": RATE_LIMITED_MESSAGE}]
 
     def test_unexpected_failure_before_any_text_returns_generic_error_line(self):
         lines = stream_lines(StreamingStub(RuntimeError("C:/private/path")))

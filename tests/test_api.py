@@ -4,9 +4,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from citewise.answer import Answer, Citation, Delta, Done
-from citewise.api import create_app
+from citewise.api import RATE_LIMITED_MESSAGE, create_app
 from citewise.library import DocumentInfo, InvalidPDFError, UploadResult
-from citewise.llm import LLMError
+from citewise.llm import LLMError, LLMRateLimitedError
 
 UPLOAD = UploadResult(
     doc_id="abc123", name="notes.pdf", pages=3, chunks_added=5, already_indexed=False, empty_pages=[]
@@ -175,3 +175,11 @@ def test_lists_indexed_documents():
         response = client.get("/api/documents")
 
     assert response.json()["data"] == [{"doc_id": "abc123", "name": "notes.pdf", "chunks": 5}]
+
+
+def test_rate_limit_returns_429_with_a_clear_message():
+    with client_for(LLMRateLimitedError("all models out of quota")) as client:
+        response = client.post("/api/ask", json={"question": "q"})
+
+    assert response.status_code == 429
+    assert response.json()["error"] == {"code": "RATE_LIMITED", "message": RATE_LIMITED_MESSAGE}
