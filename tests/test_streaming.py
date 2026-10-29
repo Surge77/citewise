@@ -55,7 +55,7 @@ class StreamingStub(StubService):
         self.events = events
         self.fail_after = fail_after
 
-    def ask_stream(self, question: str):
+    def ask_stream(self, question: str, history=()):
         if isinstance(self.events, Exception):
             raise self.events
         for index, event in enumerate(self.events):

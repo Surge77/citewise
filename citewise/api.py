@@ -1,11 +1,11 @@
 import asyncio
 import json
 import logging
-from collections.abc import AsyncGenerator, Callable, Iterator
+from collections.abc import AsyncGenerator, Callable, Iterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 from datetime import datetime, timezone
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import iterate_in_threadpool
 
-from citewise.answer import Answer, Delta, Done
+from citewise.answer import Answer, Delta, Done, Turn
 from citewise.config import PROJECT_ROOT
 from citewise.library import DocumentInfo, InvalidPDFError, UploadResult
 from citewise.llm import LLMError, LLMRateLimitedError
@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 MAX_QUESTION_CHARS = 500
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 MAX_FILENAME_CHARS = 255
+MAX_HISTORY_TURNS = 8
+MAX_TURN_CHARS = 4_000
 LLM_UNAVAILABLE_MESSAGE = "The answer service is unavailable. Try again shortly."
 RATE_LIMITED_MESSAGE = "The AI service has reached its usage limit for now. Please try again later."
 INTERNAL_ERROR_MESSAGE = "Something went wrong."
@@ -33,14 +35,24 @@ STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
 
 class Service(Protocol):
-    def ask(self, question: str) -> Answer: ...
-    def ask_stream(self, question: str) -> Iterator[Delta | Done]: ...
+    def ask(self, question: str, history: Sequence[Turn] = ()) -> Answer: ...
+    def ask_stream(self, question: str, history: Sequence[Turn] = ()) -> Iterator[Delta | Done]: ...
     def add_pdf(self, name: str, data: bytes) -> UploadResult: ...
     def documents(self) -> list[DocumentInfo]: ...
 
 
+class TurnIn(BaseModel):
+    # Only user/assistant: a client must not be able to inject "system" instructions through history.
+    role: Literal["user", "assistant"]
+    text: str = Field(max_length=MAX_TURN_CHARS)
+
+
 class AskRequest(BaseModel):
     question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
+    history: list[TurnIn] = Field(default_factory=list, max_length=MAX_HISTORY_TURNS)
+
+    def turns(self) -> list[Turn]:
+        return [Turn(role=t.role, text=t.text) for t in self.history]
 
     @field_validator("question")
     @classmethod
@@ -77,11 +89,11 @@ def _ndjson(event: dict[str, Any]) -> str:
     return json.dumps(event, ensure_ascii=False) + "\n"
 
 
-def _stream_events(service: "Service", question: str) -> Iterator[str]:
+def _stream_events(service: "Service", question: str, history: Sequence[Turn]) -> Iterator[str]:
     """Translate answer events to NDJSON lines. Errors after streaming starts can't change the HTTP status,
     so they are sent in-band as a final {"type": "error"} line."""
     try:
-        for event in service.ask_stream(question):
+        for event in service.ask_stream(question, history):
             if isinstance(event, Delta):
                 yield _ndjson({"type": "delta", "text": event.text})
             else:
@@ -134,7 +146,7 @@ def create_app(
     async def ask(body: AskRequest, request: Request) -> JSONResponse:
         service: Service = request.app.state.service
         try:
-            answer = await asyncio.get_running_loop().run_in_executor(None, service.ask, body.question)
+            answer = await asyncio.get_running_loop().run_in_executor(None, service.ask, body.question, body.turns())
         except LLMRateLimitedError as exc:
             logger.warning("llm rate limited: %s", exc)
             return _error(429, "RATE_LIMITED", RATE_LIMITED_MESSAGE)
@@ -151,7 +163,7 @@ def create_app(
         """Stream the answer as NDJSON: {"type":"delta"} lines, then one {"type":"done"} or {"type":"error"} line."""
         service: Service = request.app.state.service
         # The answer generator blocks on retrieval and Gemini; run each step on a worker thread.
-        lines = iterate_in_threadpool(_stream_events(service, body.question))
+        lines = iterate_in_threadpool(_stream_events(service, body.question, body.turns()))
         return StreamingResponse(lines, media_type="application/x-ndjson", headers=STREAM_HEADERS)
 
     @app.post("/api/documents")
