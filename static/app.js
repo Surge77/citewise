@@ -146,6 +146,7 @@ form.addEventListener("submit", async (event) => {
     pending.className = data.found ? "message bot" : "message bot not-found";
     pending.textContent = data.answer;
     addCitations(pending, data.citations);
+    chat.scrollTop = chat.scrollHeight;
   } catch (error) {
     pending.className = "message bot error";
     pending.textContent = error.message;
