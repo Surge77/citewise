@@ -2,13 +2,16 @@ import logging
 from collections.abc import Iterator
 from typing import Protocol
 
+import httpx
 from google import genai
 from google.genai import errors, types
 
 logger = logging.getLogger(__name__)
 
 RATE_LIMITED_STATUS = 429
+LLM_TIMEOUT_MS = 30_000
 NO_TEXT_MESSAGE = "Gemini returned no text; the answer may have been blocked by safety filters"
+TRANSPORT_FAILURE_MESSAGE = "Gemini could not be reached or did not respond in time"
 
 
 class LLMError(Exception):
@@ -42,7 +45,7 @@ class GeminiLLM:
     def __init__(self, api_key: str, models: list[str], thinking_budget: int | None = None) -> None:
         if not models:
             raise ValueError("GeminiLLM needs at least one model")
-        self._client = genai.Client(api_key=api_key)
+        self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=LLM_TIMEOUT_MS))
         self._models = models
         self._configs = {model: _config_for(model, thinking_budget) for model in models}
 
@@ -57,6 +60,8 @@ class GeminiLLM:
                     logger.warning("%s is rate limited; trying the next model", model)
                     continue
                 raise _api_failure(exc) from exc
+            except httpx.TransportError as exc:
+                raise LLMError(TRANSPORT_FAILURE_MESSAGE) from exc
             if not response.text:
                 raise LLMError(NO_TEXT_MESSAGE)
             return response.text
@@ -78,6 +83,8 @@ class GeminiLLM:
                     logger.warning("%s is rate limited; trying the next model", model)
                     continue
                 raise _api_failure(exc) from exc
+            except httpx.TransportError as exc:
+                raise LLMError(TRANSPORT_FAILURE_MESSAGE) from exc
             if not produced_text:
                 raise LLMError(NO_TEXT_MESSAGE)
             return

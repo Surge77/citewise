@@ -54,6 +54,9 @@ class ChunkStore:
             metadatas=[{"doc_id": c.doc_id, "doc_name": c.doc_name, "page": c.page} for c in chunks],
         )
 
+    def remove_document(self, doc_id: str) -> None:
+        self._collection.delete(where={"doc_id": doc_id})
+
     def search(self, query: str, k: int) -> list[Hit]:
         total = self.count()
         if total == 0:

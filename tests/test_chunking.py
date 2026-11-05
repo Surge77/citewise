@@ -10,6 +10,12 @@ class TestSplitSentences:
     def test_splits_sentences_glued_without_a_space(self):
         assert split_sentences("Ends here.Next starts") == ["Ends here.", "Next starts"]
 
+    def test_keeps_decimals_and_version_numbers_whole(self):
+        assert split_sentences("Set p to 0.05. Use Python 3.9.") == ["Set p to 0.05.", "Use Python 3.9."]
+
+    def test_splits_before_a_number_when_there_is_a_space(self):
+        assert split_sentences("Total was five. 3 items failed.") == ["Total was five.", "3 items failed."]
+
     def test_returns_empty_list_for_blank_text(self):
         assert split_sentences("   ") == []
 
