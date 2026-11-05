@@ -1,7 +1,7 @@
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 
-from citewise.answer import Answer, Answerer, Delta, Done
+from citewise.answer import Answer, Answerer, Delta, Done, Turn
 from citewise.config import get_api_key, load_settings
 from citewise.embedder import MiniLMEmbedder
 from citewise.indexing import index_directory
@@ -17,11 +17,11 @@ class CitewiseService:
     answerer: Answerer
     library: Library
 
-    def ask(self, question: str) -> Answer:
-        return self.answerer.ask(question)
+    def ask(self, question: str, history: Sequence[Turn] = ()) -> Answer:
+        return self.answerer.ask(question, history)
 
-    def ask_stream(self, question: str) -> Iterator[Delta | Done]:
-        return self.answerer.ask_stream(question)
+    def ask_stream(self, question: str, history: Sequence[Turn] = ()) -> Iterator[Delta | Done]:
+        return self.answerer.ask_stream(question, history)
 
     def add_pdf(self, name: str, data: bytes) -> UploadResult:
         return self.library.add_pdf(name, data)
@@ -45,5 +45,12 @@ def build_service() -> CitewiseService:
     llm = GeminiLLM(
         api_key=get_api_key(), models=list(settings.llm_models), thinking_budget=settings.llm_thinking_budget
     )
-    answerer = Answerer(searcher=retriever, llm=llm, top_k=settings.top_k, min_similarity=settings.min_similarity)
+    answerer = Answerer(
+        searcher=retriever,
+        llm=llm,
+        top_k=settings.top_k,
+        min_similarity=settings.min_similarity,
+        library=store,
+        full_context_chars=settings.full_context_chars,
+    )
     return CitewiseService(answerer=answerer, library=Library(store, settings.data_dir, settings.max_chunk_chars))

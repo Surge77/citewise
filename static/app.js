@@ -31,11 +31,11 @@ function addCitations(message, citations) {
 }
 
 // Reads the NDJSON stream: "delta" lines carry text as it is generated, then one "done" or "error" line ends it.
-async function streamAnswer(question, onDelta) {
+async function streamAnswer(question, history, onDelta) {
   const response = await fetch("/api/ask/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, history }),
   });
   if (!response.ok || !response.body) {
     const body = await response.json().catch(() => null);
@@ -61,6 +61,9 @@ async function streamAnswer(question, onDelta) {
 }
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+// Recent turns sent with each question so follow-ups ("explain that more simply") have context; the API accepts 8.
+const MAX_HISTORY_TURNS = 6;
+const history = [];
 const uploadInput = document.getElementById("upload");
 const uploadStatus = document.getElementById("upload-status");
 const documentList = document.getElementById("documents");
@@ -137,7 +140,7 @@ form.addEventListener("submit", async (event) => {
 
   try {
     let streamed = "";
-    const data = await streamAnswer(question, (text) => {
+    const data = await streamAnswer(question, history.slice(-MAX_HISTORY_TURNS), (text) => {
       if (!streamed) pending.className = "message bot";
       streamed += text;
       pending.textContent = streamed;
@@ -147,6 +150,7 @@ form.addEventListener("submit", async (event) => {
     pending.textContent = data.answer;
     addCitations(pending, data.citations);
     chat.scrollTop = chat.scrollHeight;
+    history.push({ role: "user", text: question }, { role: "assistant", text: data.answer });
   } catch (error) {
     pending.className = "message bot error";
     pending.textContent = error.message;

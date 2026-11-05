@@ -22,6 +22,9 @@ class Settings:
     # and grounded in retrieved sources, so the reasoning step adds latency without much benefit.
     llm_thinking_budget: int = 0
     top_k: int = 4
+    # Libraries up to this size are sent to the model whole (~15k tokens), so summaries, lists, counts and
+    # comparisons work; larger libraries fall back to search. Gemini Flash accepts far more, but cost grows per token.
+    full_context_chars: int = 60_000
     # How many results each search (meaning and keyword) contributes before fusion and reranking.
     candidate_pool: int = 20
     # Below this cosine similarity a chunk is treated as unrelated. From eval/run_eval.py: off-topic questions
