@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Citewise</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="app">
+    <header class="header">
+        <h1>Citewise</h1>
+        <p>Answers from your PDFs, with the page to prove it.</p>
+    </header>
+
+    <section id="chat" class="chat" aria-live="polite"></section>
+
+    <form id="ask-form" class="ask">
+        <label for="question" class="visually-hidden">Your question</label>
+        <input id="question" name="question" type="text" maxlength="500" autocomplete="off"
+               placeholder="Ask something about your documents…" required>
+        <button id="send" type="submit">Ask</button>
+    </form>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>
