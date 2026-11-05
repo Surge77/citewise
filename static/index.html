@@ -13,6 +13,18 @@
         <p>Answers from your PDFs, with the page to prove it.</p>
     </header>
 
+    <section class="library" aria-labelledby="library-title">
+        <div class="library-head">
+            <h2 id="library-title">Your documents</h2>
+            <label class="upload-button">
+                Add PDF
+                <input id="upload" type="file" accept="application/pdf,.pdf" class="visually-hidden">
+            </label>
+        </div>
+        <p id="upload-status" class="upload-status" role="status"></p>
+        <ul id="documents" class="documents"></ul>
+    </section>
+
     <section id="chat" class="chat" aria-live="polite"></section>
 
     <form id="ask-form" class="ask">

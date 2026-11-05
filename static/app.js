@@ -43,6 +43,71 @@ async function ask(question) {
   return body.data;
 }
 
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+const uploadInput = document.getElementById("upload");
+const uploadStatus = document.getElementById("upload-status");
+const documentList = document.getElementById("documents");
+
+function setUploadStatus(text, kind = "") {
+  uploadStatus.className = `upload-status ${kind}`;
+  uploadStatus.textContent = text;
+}
+
+async function loadDocuments() {
+  const response = await fetch("/api/documents");
+  const body = await response.json().catch(() => null);
+  documentList.replaceChildren();
+  if (!body?.success || body.data.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "empty";
+    empty.textContent = "No documents yet. Add a PDF to start asking questions.";
+    documentList.appendChild(empty);
+    return;
+  }
+  for (const doc of body.data) {
+    const item = document.createElement("li");
+    item.textContent = `${doc.name} · ${doc.chunks} passages`;
+    documentList.appendChild(item);
+  }
+}
+
+function describeUpload(data) {
+  if (data.already_indexed) return `${data.name} is already in your library.`;
+  const pages = `${data.pages} page${data.pages === 1 ? "" : "s"}`;
+  const note = data.empty_pages.length
+    ? ` No text found on page(s) ${data.empty_pages.join(", ")} — they may be scanned images.`
+    : "";
+  return `Added ${data.name}: ${pages}, ${data.chunks_added} passages.${note}`;
+}
+
+uploadInput.addEventListener("change", async () => {
+  const file = uploadInput.files?.[0];
+  uploadInput.value = "";
+  if (!file) return;
+  if (file.size > MAX_UPLOAD_BYTES) {
+    setUploadStatus("PDFs can be at most 20 MB.", "error");
+    return;
+  }
+  setUploadStatus(`Reading ${file.name}…`, "pending");
+  try {
+    const response = await fetch(`/api/documents?name=${encodeURIComponent(file.name)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/pdf" },
+      body: file,
+    });
+    const body = await response.json().catch(() => null);
+    if (!body?.success) {
+      throw new Error(body?.error?.message ?? `Upload failed (${response.status}).`);
+    }
+    setUploadStatus(describeUpload(body.data), body.data.empty_pages.length ? "warning" : "ok");
+    await loadDocuments();
+  } catch (error) {
+    setUploadStatus(error.message, "error");
+  }
+});
+
+loadDocuments().catch(() => setUploadStatus("Could not load your documents.", "error"));
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const question = input.value.trim();

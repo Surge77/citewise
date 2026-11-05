@@ -29,6 +29,14 @@ class ChunkStore:
     def has_document(self, doc_id: str) -> bool:
         return bool(self._collection.get(where={"doc_id": doc_id}, limit=1)["ids"])
 
+    def chunk_counts(self) -> dict[tuple[str, str], int]:
+        """Chunks per (doc_id, doc_name)."""
+        counts: dict[tuple[str, str], int] = {}
+        for meta in self._collection.get(include=["metadatas"])["metadatas"] or []:
+            key = (str(meta["doc_id"]), str(meta["doc_name"]))
+            counts[key] = counts.get(key, 0) + 1
+        return counts
+
     def all_chunks(self) -> list[Chunk]:
         result = self._collection.get(include=["documents", "metadatas"])
         documents = result["documents"] or []

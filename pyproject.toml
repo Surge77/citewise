@@ -13,7 +13,5 @@ addopts = "-q"
 source = ["citewise"]
 
 [tool.pyright]
-venvPath = "../.."
-venv = "venv-genai"
 include = ["citewise", "tests", "eval"]
 pythonVersion = "3.11"
