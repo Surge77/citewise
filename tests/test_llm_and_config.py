@@ -1,10 +1,11 @@
 from types import SimpleNamespace
 
+import httpx
 import pytest
 from google.genai import errors
 
 from citewise.config import DEFAULT_LLM_MODELS, get_api_key, load_settings
-from citewise.llm import GeminiLLM, LLMError, LLMRateLimitedError
+from citewise.llm import LLM_TIMEOUT_MS, GeminiLLM, LLMError, LLMRateLimitedError
 
 
 def api_error(status: int) -> errors.APIError:
@@ -42,6 +43,31 @@ def gemini_with(outcomes: dict[str, object], thinking_budget: int | None = None)
 
 def text(value: str | None) -> SimpleNamespace:
     return SimpleNamespace(text=value)
+
+
+class TestTransport:
+    def test_client_is_created_with_a_request_timeout(self, monkeypatch):
+        created: dict[str, object] = {}
+        monkeypatch.setattr("citewise.llm.genai.Client", lambda **kwargs: created.update(kwargs))
+
+        GeminiLLM(api_key="k", models=["gemini-a"])
+
+        assert created["http_options"].timeout == LLM_TIMEOUT_MS  # type: ignore[attr-defined]
+
+    @pytest.mark.parametrize("failure", [httpx.ReadTimeout("slow"), httpx.ConnectError("AIza-secret unreachable")])
+    def test_generate_maps_transport_failures_to_llm_error_without_details(self, failure):
+        llm, _ = gemini_with({"gemini-a": failure})
+
+        with pytest.raises(LLMError) as raised:
+            llm.generate("prompt")
+
+        assert "AIza" not in str(raised.value)
+
+    def test_stream_maps_transport_failures_to_llm_error(self):
+        llm, _ = gemini_with({"gemini-a": httpx.ReadTimeout("slow")})
+
+        with pytest.raises(LLMError):
+            list(llm.stream("prompt"))
 
 
 class TestGenerate:
