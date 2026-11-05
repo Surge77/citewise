@@ -1,4 +1,6 @@
 :root {
+  /* Lets the browser draw scrollbars and form controls to match light or dark mode. */
+  color-scheme: light dark;
   --bg: #f6f5f1;
   --surface: #ffffff;
   --text: #1d1d1b;
@@ -33,9 +35,12 @@ body {
   justify-content: center;
 }
 
+/* A fixed-height column makes .chat the scroll container: the input stays below the chat instead of floating
+   over page content, and app.js can auto-scroll the chat to the newest message. */
 .app {
   width: min(760px, 100%);
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   padding: 24px 16px;
@@ -73,11 +78,13 @@ body {
 .upload-status.warning { color: var(--muted); }
 .upload-status.error { color: var(--error); }
 
-.documents { list-style: none; margin-top: 8px; font-size: 0.875rem; color: var(--muted); }
+.documents { list-style: none; margin-top: 8px; font-size: 0.875rem; color: var(--muted); max-height: 7.5em; overflow-y: auto; }
 .documents li { padding: 2px 0; overflow-wrap: anywhere; }
 
 .chat {
   flex: 1;
+  /* Flex children default to min-height: auto, which lets them grow past the column instead of scrolling. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -109,7 +116,7 @@ body {
 
 .citations strong { color: var(--accent); }
 
-.ask { display: flex; gap: 8px; position: sticky; bottom: 0; padding-bottom: 8px; }
+.ask { display: flex; gap: 8px; padding-bottom: 8px; background: var(--bg); }
 
 .ask input {
   flex: 1;

@@ -17,7 +17,7 @@ from starlette.concurrency import iterate_in_threadpool
 from citewise.answer import Answer, Delta, Done
 from citewise.config import PROJECT_ROOT
 from citewise.library import DocumentInfo, InvalidPDFError, UploadResult
-from citewise.llm import LLMError
+from citewise.llm import LLMError, LLMRateLimitedError
 from citewise.service import build_service
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,7 @@ MAX_QUESTION_CHARS = 500
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 MAX_FILENAME_CHARS = 255
 LLM_UNAVAILABLE_MESSAGE = "The answer service is unavailable. Try again shortly."
+RATE_LIMITED_MESSAGE = "The AI service has reached its usage limit for now. Please try again later."
 INTERNAL_ERROR_MESSAGE = "Something went wrong."
 # no-cache stops browsers caching the stream; X-Accel-Buffering stops nginx-style proxies holding it back.
 STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
@@ -85,6 +86,9 @@ def _stream_events(service: "Service", question: str) -> Iterator[str]:
                 yield _ndjson({"type": "delta", "text": event.text})
             else:
                 yield _ndjson({"type": "done", **_answer_payload(event.answer)})
+    except LLMRateLimitedError as exc:
+        logger.warning("llm rate limited during stream: %s", exc)
+        yield _ndjson({"type": "error", "code": "RATE_LIMITED", "message": RATE_LIMITED_MESSAGE})
     except LLMError as exc:
         logger.warning("llm unavailable during stream: %s", exc)
         yield _ndjson({"type": "error", "code": "LLM_UNAVAILABLE", "message": LLM_UNAVAILABLE_MESSAGE})
@@ -131,6 +135,9 @@ def create_app(
         service: Service = request.app.state.service
         try:
             answer = await asyncio.get_running_loop().run_in_executor(None, service.ask, body.question)
+        except LLMRateLimitedError as exc:
+            logger.warning("llm rate limited: %s", exc)
+            return _error(429, "RATE_LIMITED", RATE_LIMITED_MESSAGE)
         except LLMError as exc:
             logger.warning("llm unavailable: %s", exc)
             return _error(502, "LLM_UNAVAILABLE", LLM_UNAVAILABLE_MESSAGE)
