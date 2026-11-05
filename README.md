@@ -80,7 +80,8 @@ skipped.
 
 ## API
 
-`POST /api/ask` with `{"question": "..."}` (1–500 characters):
+`POST /api/ask` with `{"question": "..."}` (1–500 characters), plus an optional `history` list of up to 8 earlier
+turns (`{"role": "user" | "assistant", "text": "..."}`) for follow-up questions:
 
 ```json
 {
@@ -110,8 +111,8 @@ Uploads are checked for the `%PDF-` signature, read with a hard size cap (the bo
 the limit), and saved under a sanitised file name with no directory components.
 
 Errors use the same envelope with `"success": false` and a code: `VALIDATION_ERROR` (422, with per-field
-messages), `INVALID_PDF` (400), `FILE_TOO_LARGE` (413), `LLM_UNAVAILABLE` (502) or `INTERNAL_ERROR` (500).
-Error responses never include internal details.
+messages), `INVALID_PDF` (400), `FILE_TOO_LARGE` (413), `RATE_LIMITED` (429, every configured model is out of
+quota), `LLM_UNAVAILABLE` (502) or `INTERNAL_ERROR` (500). Error responses never include internal details.
 
 ## Project layout
 
@@ -124,8 +125,10 @@ Error responses never include internal details.
 | `citewise/retriever.py` | Reciprocal rank fusion and the hybrid retriever |
 | `citewise/reranker.py` | Cross-encoder reranker |
 | `citewise/library.py` | Upload validation, safe file names, saving and indexing uploads |
+| `citewise/pages.py` | Rebuild whole pages from stored chunks for whole-library mode |
 | `citewise/answer.py` | Prompt with numbered sources, citation parsing, refusal |
-| `citewise/llm.py` | Gemini client with clean error mapping |
+| `citewise/llm.py` | Gemini client with model fallback and clean error mapping |
+| `citewise/service.py` | Wires the models, store, retriever and LLM together at startup |
 | `citewise/api.py` | FastAPI app and response envelope |
 | `static/` | Chat page (all model output rendered as text, never HTML) |
 | `eval/` | Retrieval evaluation set and scorer |
@@ -133,5 +136,10 @@ Error responses never include internal details.
 ## Configuration
 
 Defaults live in `citewise/config.py`: embedding model `all-MiniLM-L6-v2`, reranker `ms-marco-MiniLM-L-6-v2`,
-LLM `gemini-2.5-flash`, 4 sources per answer, 20 candidates per search, similarity floor 0.15, chunks up to 600
+LLM `gemini-2.5-flash` falling back to `gemini-3.5-flash-lite` when out of quota (override the ordered list with
+`CITEWISE_LLM_MODELS`), 4 sources per answer, 20 candidates per search, similarity floor 0.15, chunks up to 600
 characters. Re-tune the similarity floor with `eval/run_eval.py --min-similarity` when your documents change.
+
+## License
+
+[MIT](LICENSE)
