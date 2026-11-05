@@ -1,6 +1,6 @@
 """Retrieval-only evaluation: measures search quality and the refusal threshold without any LLM calls.
 
-Usage: python -m eval.run_eval [--k 4] [--min-similarity 0.25]
+Usage: python -m eval.run_eval [--k 4] [--min-similarity 0.15]
 """
 
 import argparse
@@ -52,12 +52,13 @@ def score(results: list[tuple[Case, list[Hit]]], min_similarity: float) -> Repor
         # Mirrors Answerer: the gate uses the best meaning-search similarity, wherever the reranker placed it.
         return bool(hits) and max(h.similarity for h in hits) >= min_similarity
 
+    answerable_count = max(len(answerable), 1)
     return Report(
-        hit_at_1=sum(r == 1 for r in ranks) / len(ranks),
-        hit_at_k=sum(r is not None for r in ranks) / len(ranks),
-        mrr=sum(1 / r for r in ranks if r is not None) / len(ranks),
+        hit_at_1=sum(r == 1 for r in ranks) / answerable_count,
+        hit_at_k=sum(r is not None for r in ranks) / answerable_count,
+        mrr=sum(1 / r for r in ranks if r is not None) / answerable_count,
         refused_unanswerable=sum(not passes_floor(h) for h in unanswerable) / max(len(unanswerable), 1),
-        answered_answerable=sum(passes_floor(h) for _, h in answerable) / len(answerable),
+        answered_answerable=sum(passes_floor(h) for _, h in answerable) / answerable_count,
     )
 
 
