@@ -15,6 +15,9 @@ class Settings:
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     llm_model: str = "gemini-2.5-flash"
+    # 0 disables hidden reasoning: measured first text ~1.0s instead of ~5.0s. Answers here are short and grounded
+    # in retrieved sources, so the reasoning step adds latency without much benefit.
+    llm_thinking_budget: int = 0
     top_k: int = 4
     # How many results each search (meaning and keyword) contributes before fusion and reranking.
     candidate_pool: int = 20

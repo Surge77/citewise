@@ -30,17 +30,34 @@ function addCitations(message, citations) {
   message.appendChild(list);
 }
 
-async function ask(question) {
-  const response = await fetch("/api/ask", {
+// Reads the NDJSON stream: "delta" lines carry text as it is generated, then one "done" or "error" line ends it.
+async function streamAnswer(question, onDelta) {
+  const response = await fetch("/api/ask/stream", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question }),
   });
-  const body = await response.json().catch(() => null);
-  if (!body?.success) {
+  if (!response.ok || !response.body) {
+    const body = await response.json().catch(() => null);
     throw new Error(body?.error?.message ?? `Request failed (${response.status}).`);
   }
-  return body.data;
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffered = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffered += value;
+    const lines = buffered.split("\n");
+    buffered = lines.pop();  // A network chunk can end mid-line; keep the partial line for the next read.
+    for (const line of lines) {
+      if (!line) continue;
+      const event = JSON.parse(line);
+      if (event.type === "delta") onDelta(event.text);
+      else if (event.type === "done") return event;
+      else if (event.type === "error") throw new Error(event.message);
+    }
+  }
+  throw new Error("The answer stream ended unexpectedly.");
 }
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
@@ -119,7 +136,13 @@ form.addEventListener("submit", async (event) => {
   const pending = addMessage("bot pending", "Searching your documents…");
 
   try {
-    const data = await ask(question);
+    let streamed = "";
+    const data = await streamAnswer(question, (text) => {
+      if (!streamed) pending.className = "message bot";
+      streamed += text;
+      pending.textContent = streamed;
+      chat.scrollTop = chat.scrollHeight;
+    });
     pending.className = data.found ? "message bot" : "message bot not-found";
     pending.textContent = data.answer;
     addCitations(pending, data.citations);

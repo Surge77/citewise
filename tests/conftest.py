@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 import pytest
@@ -50,6 +51,12 @@ class FakeLLM:
     def generate(self, prompt: str) -> str:
         self.prompts.append(prompt)
         return self.reply
+
+    def stream(self, prompt: str) -> Iterator[str]:
+        """Yield the reply in 5-character pieces, so citation markers like [1] can split across pieces."""
+        self.prompts.append(prompt)
+        for start in range(0, len(self.reply), 5):
+            yield self.reply[start : start + 5]
 
 
 @pytest.fixture

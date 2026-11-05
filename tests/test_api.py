@@ -1,7 +1,9 @@
+from collections.abc import Iterator
+
 import pytest
 from fastapi.testclient import TestClient
 
-from citewise.answer import Answer, Citation
+from citewise.answer import Answer, Citation, Delta, Done
 from citewise.api import create_app
 from citewise.library import DocumentInfo, InvalidPDFError, UploadResult
 from citewise.llm import LLMError
@@ -21,6 +23,9 @@ class StubService:
         if isinstance(self.result, Exception):
             raise self.result
         return self.result
+
+    def ask_stream(self, question: str) -> Iterator[Delta | Done]:
+        yield Done(self.ask(question))
 
     def add_pdf(self, name: str, data: bytes) -> UploadResult:
         self.uploads.append((name, data))
