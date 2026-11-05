@@ -3,8 +3,9 @@ from dataclasses import dataclass
 
 from citewise.ingest import Document
 
-# Also splits "end.Next" because pypdf glues lines and repeated paragraphs together without a space.
-SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s*(?=[A-Z0-9\"'(])")
+# Also splits "end.Next" because pypdf glues lines and repeated paragraphs together without a space. That no-space
+# case is limited to capitals so decimals and versions like 0.05 and 3.9 stay whole.
+SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])(?:\s+(?=[A-Z0-9\"'(])|(?=[A-Z]))")
 
 
 @dataclass(frozen=True)
