@@ -76,7 +76,7 @@ pytest --cov                      # tests; no models or network needed
 
 The first start downloads two small models (~180 MB total) from Hugging Face. If the download stalls on Windows,
 set `HF_HUB_DISABLE_XET=1`. PDFs are indexed on startup; a file that is already indexed (same content hash) is
-skipped.
+skipped, and passages from PDFs no longer in `data/` are removed.
 
 ## API
 

@@ -21,6 +21,13 @@ def index_pdf(doc: Document, store: ChunkStore, max_chars: int) -> int:
 
 
 def index_directory(data_dir: Path, store: ChunkStore, max_chars: int) -> dict[str, int]:
-    added = {pdf.name: index_pdf(load_pdf(pdf), store, max_chars) for pdf in sorted(data_dir.glob("*.pdf"))}
+    """Make the store match data_dir: index new PDFs and drop chunks of PDFs that were replaced or deleted."""
+    documents = [load_pdf(pdf) for pdf in sorted(data_dir.glob("*.pdf"))]
+    added = {doc.name: index_pdf(doc, store, max_chars) for doc in documents}
+    current_ids = {doc.doc_id for doc in documents}
+    for doc_id, name in store.chunk_counts():
+        if doc_id not in current_ids:
+            store.remove_document(doc_id)
+            logger.info("removed %s: no longer in the data directory", name)
     logger.info("indexed %s", added)
     return added
